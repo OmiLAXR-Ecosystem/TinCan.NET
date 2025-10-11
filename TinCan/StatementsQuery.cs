@@ -21,33 +21,25 @@ namespace TinCan
     public class StatementsQuery
     {
         // TODO: put in common location
-        private const String ISODateTimeFormat = "o";
+        private const string ISODateTimeFormat = "o";
 
         public Agent agent { get; set; }
         public Uri verbId { get; set; }
-        private string _activityId;
-        public string activityId {
-            get { return _activityId; }
-            set
-            {
-                Uri uri = new Uri(value);
-                _activityId = value;
-            }
-        }
-        public Nullable<Guid> registration { get; set; }
-        public Nullable<Boolean> relatedActivities { get; set; }
-        public Nullable<Boolean> relatedAgents { get; set; }
-        public Nullable<DateTime> since { get; set; }
-        public Nullable<DateTime> until { get; set; }
-        public Nullable<Int32> limit { get; set; }
+        public Uri activityId;
+        public Guid? registration { get; set; }
+        public bool? relatedActivities { get; set; }
+        public bool? relatedAgents { get; set; }
+        public DateTime? since { get; set; }
+        public DateTime? until { get; set; }
+        public int? limit { get; set; }
         public StatementsQueryResultFormat format { get; set; }
-        public Nullable<Boolean> ascending { get; set; }
+        public bool? ascending { get; set; }
 
         public StatementsQuery() {}
 
-        public Dictionary<String, String> ToParameterMap (TCAPIVersion version)
+        public Dictionary<string, string> ToParameterMap (TCAPIVersion version)
         {
-            var result = new Dictionary<String, String>();
+            var result = new Dictionary<string, string>();
 
             if (agent != null)
             {
@@ -59,7 +51,7 @@ namespace TinCan
             }
             if (activityId != null)
             {
-                result.Add("activity", activityId);
+                result.Add("activity", activityId.ToString());
             }
             if (registration != null)
             {

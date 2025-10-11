@@ -13,6 +13,9 @@
     See the License for the specific language governing permissions and
     limitations under the License.
 */
+
+using System;
+
 namespace TinCanTests
 {
     using NUnit.Framework;
@@ -25,8 +28,8 @@ namespace TinCanTests
         public void TestActivityIdTrailingSlash()
         {
             var activity = new Activity();
-            string noTrailingSlash = "http://foo";
-            activity.id = noTrailingSlash;
+            var noTrailingSlash = "http://foo";
+            activity.id = new Uri(noTrailingSlash);
             Assert.AreEqual(noTrailingSlash, activity.id);
         }
 
@@ -34,8 +37,8 @@ namespace TinCanTests
         public void TestActivityIdCase()
         {
             var activity = new Activity();
-            string mixedCase = "http://fOO";
-            activity.id = mixedCase;
+            var mixedCase = "http://fOO";
+            activity.id = new Uri(mixedCase);
             Assert.AreEqual(mixedCase, activity.id);
         }
 
@@ -46,8 +49,8 @@ namespace TinCanTests
                 () =>
                 {
                     var activity = new Activity();
-                    string invalid = "foo";
-                    activity.id = invalid;
+                    var invalid = "foo";
+                    activity.id = new Uri(invalid);
                 }
             );
         }

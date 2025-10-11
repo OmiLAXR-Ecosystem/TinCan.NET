@@ -21,17 +21,11 @@ namespace TinCanTests
     using TinCan.Json;
 
     [TestFixture]
-    class ContextActivitiesTest
+    internal class ContextActivitiesTest
     {
-        private Activity sampleActivity1 = new Activity
-        {
-            id = "http://0.bar/"
-        };
+        private Activity sampleActivity1 = new Activity("http://0.bar/");
 
-        private Activity sampleActivity2 = new Activity
-        {
-            id = "http://1.bar/"
-        };
+        private Activity sampleActivity2 = new Activity("http://1.bar/");
 
         [Test]
         public void ConstructorWithObject()
@@ -43,7 +37,7 @@ namespace TinCanTests
                 "\"other\": " + sampleActivity1.ToJSON() +
             "}";
 
-            ContextActivities contextActivities = new ContextActivities(new StringOfJSON(json));
+            var contextActivities = new ContextActivities(new StringOfJSON(json));
 
             ValidateActivityList(contextActivities.parent, 1);
             ValidateActivityList(contextActivities.grouping, 1);
@@ -61,7 +55,7 @@ namespace TinCanTests
                 "\"other\": [" + sampleActivity1.ToJSON() + ", " + sampleActivity2.ToJSON() + "]" +
             "}";
 
-            ContextActivities contextActivities = new ContextActivities(new StringOfJSON(json));
+            var contextActivities = new ContextActivities(new StringOfJSON(json));
 
             ValidateActivityList(contextActivities.parent, 2);
             ValidateActivityList(contextActivities.grouping, 2);
@@ -73,9 +67,9 @@ namespace TinCanTests
         {
             Assert.IsTrue(list.Count == expectedLength);
 
-            for (int i = 0; i < list.Count; i++)
+            for (var i = 0; i < list.Count; i++)
             {
-                Assert.IsTrue(list[i].id == "http://" + i + ".bar/");
+                Assert.IsTrue(list[i].id.ToString() == "http://" + i + ".bar/");
             }
         }
     }

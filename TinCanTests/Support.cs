@@ -40,7 +40,7 @@ namespace TinCanTests
             verb.display.Add("en-US", "experienced");
 
             activity = new Activity();
-            activity.id = "http://tincanapi.com/TinCanCSharp/Test/Unit/0";
+            activity.id = new Uri("http://tincanapi.com/TinCanCSharp/Test/Unit/0");
             activity.definition = new ActivityDefinition();
             activity.definition.type = new Uri("http://id.tincanapi.com/activitytype/unit-test");
             activity.definition.name = new LanguageMap();
@@ -69,8 +69,7 @@ namespace TinCanTests
                 activity.definition.correctResponsesPattern.Add("choice-" + i.ToString());
             }
 
-            parent = new Activity();
-            parent.id = "http://tincanapi.com/TinCanCSharp/Test";
+            parent = new Activity("http://tincanapi.com/TinCanCSharp/Test");
             parent.definition = new ActivityDefinition();
             parent.definition.type = new Uri("http://id.tincanapi.com/activitytype/unit-test-suite");
             //parent.definition.moreInfo = new Uri("http://rusticisoftware.github.io/TinCanCSharp/");

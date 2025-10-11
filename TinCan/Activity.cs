@@ -21,23 +21,24 @@ namespace TinCan
 {
     public class Activity : JsonModel, StatementTarget
     {
-        public static readonly String OBJECT_TYPE = "Activity";
-        public String ObjectType { get { return OBJECT_TYPE; } }
+        public static readonly string OBJECT_TYPE = "Activity";
+        public string ObjectType { get { return OBJECT_TYPE; } }
 
-        private string _id;
-        public string id
-        {
-            get { return _id; }
-            set
-            {
-                Uri uri = new Uri(value);
-                _id = value;
-            }
-        }
+        public Uri id { get; set; }
 
         public ActivityDefinition definition { get; set; }
 
         public Activity() { }
+
+        public Activity(string uri)
+        {
+            id = new Uri(uri);
+        }
+
+        public Activity(Uri uri)
+        {
+            id = uri;
+        }
 
         public Activity(StringOfJSON json) : this(json.toJObject()) { }
 
@@ -45,9 +46,16 @@ namespace TinCan
         {
             if (jobj["id"] != null)
             {
-                string idFromJSON = jobj.Value<String>("id");
-                Uri uri = new Uri(idFromJSON);
-                id = idFromJSON;
+                var idFromJSON = jobj.Value<string>("id");
+                // Allow both absolute and relative URIs
+                if (Uri.TryCreate(idFromJSON, UriKind.Absolute, out var parsedUri))
+                {
+                    id = parsedUri;
+                }
+                else
+                {
+                    throw new FormatException($"Invalid URI format in Activity.id: {idFromJSON}");
+                }
             }
             if (jobj["definition"] != null)
             {
@@ -57,7 +65,7 @@ namespace TinCan
 
         public override JObject ToJObject(TCAPIVersion version)
         {
-            JObject result = new JObject();
+            var result = new JObject();
             result.Add("objectType", ObjectType);
 
             if (id != null)

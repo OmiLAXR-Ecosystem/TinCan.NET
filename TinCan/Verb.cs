@@ -32,7 +32,7 @@ namespace TinCan
         {
             if (jobj["id"] != null)
             {
-                id = new Uri(jobj.Value<String>("id"));
+                id = new Uri(jobj.Value<string>("id"));
             }
             if (jobj["display"] != null)
             {
@@ -45,7 +45,7 @@ namespace TinCan
             id = uri;
         }
 
-        public Verb(String str)
+        public Verb(string str)
         {
             id = new Uri (str);
         }
