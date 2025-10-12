@@ -13,7 +13,9 @@
     See the License for the specific language governing permissions and
     limitations under the License.
 */
+
 using System;
+using System.Collections.Generic;
 using Newtonsoft.Json.Linq;
 using TinCan.Json;
 
@@ -27,25 +29,35 @@ namespace TinCan
         public Nullable<Guid> id { get; set; }
         public Nullable<DateTime> stored { get; set; }
         public Agent authority { get; set; }
+        public List<Attachment> attachments { get; set; } // Add this property
         public TCAPIVersion version { get; set; }
         //public List<Attachment> attachments { get; set; }
 
-        public Statement() : base() { }
-        public Statement(StringOfJSON json) : this(json.toJObject()) { }
+        public Statement() : base()
+        {
+        }
 
-        public Statement(JObject jobj) : base(jobj) {
+        public Statement(StringOfJSON json) : this(json.toJObject())
+        {
+        }
+
+        public Statement(JObject jobj) : base(jobj)
+        {
             if (jobj["id"] != null)
             {
                 id = new Guid(jobj.Value<String>("id"));
             }
+
             if (jobj["stored"] != null)
             {
                 stored = jobj.Value<DateTime>("stored");
             }
+
             if (jobj["authority"] != null)
             {
                 authority = (Agent)jobj.Value<JObject>("authority");
             }
+
             if (jobj["version"] != null)
             {
                 version = (TCAPIVersion)jobj.Value<String>("version");
@@ -59,28 +71,52 @@ namespace TinCan
             {
                 target = (SubStatement)jobj.Value<JObject>("object");
             }
+            
+            if (jobj["attachments"] is JArray attArray)
+            {
+                attachments = new List<Attachment>();
+                foreach (var item in attArray)
+                {
+                    attachments.Add((Attachment)item);
+                }
+            }
         }
 
         public override JObject ToJObject(TCAPIVersion version)
         {
-            JObject result = base.ToJObject(version);
+            var result = base.ToJObject(version);
 
             if (id != null)
             {
                 result.Add("id", id.ToString());
             }
+
             if (stored != null)
             {
                 result.Add("stored", stored.Value.ToString(ISODateTimeFormat));
             }
+
             if (authority != null)
             {
                 result.Add("authority", authority.ToJObject(version));
             }
+
             if (version != null)
             {
                 result.Add("version", version.ToString());
             }
+
+            if (attachments != null && attachments.Count > 0)
+            {
+                var array = new JArray();
+                foreach (var att in attachments)
+                {
+                    array.Add(att.ToJObject(version));
+                }
+
+                result.Add("attachments", array);
+            }
+
 
             return result;
         }
@@ -91,6 +127,7 @@ namespace TinCan
             {
                 id = Guid.NewGuid();
             }
+
             if (timestamp == null)
             {
                 timestamp = DateTime.UtcNow;
