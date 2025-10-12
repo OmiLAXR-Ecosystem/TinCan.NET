@@ -22,24 +22,15 @@ namespace TinCanTests
     using TinCan;
 
     [TestFixture]
-    class ActivityTest
+    internal class ActivityTest
     {
-        [Test]
-        public void TestActivityIdTrailingSlash()
-        {
-            var activity = new Activity();
-            var noTrailingSlash = "http://foo";
-            activity.id = new Uri(noTrailingSlash);
-            Assert.AreEqual(noTrailingSlash, activity.id);
-        }
-
         [Test]
         public void TestActivityIdCase()
         {
             var activity = new Activity();
             var mixedCase = "http://fOO";
             activity.id = new Uri(mixedCase);
-            Assert.AreEqual(mixedCase, activity.id);
+            Assert.AreEqual(mixedCase.ToLowerInvariant() + "/", activity.id.ToString());
         }
 
         [Test]
