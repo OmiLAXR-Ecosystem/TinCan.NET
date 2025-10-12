@@ -29,11 +29,11 @@ namespace TinCan
             map = new Dictionary<Uri, JToken>();
         }
 
-        public Extensions(JObject jobj) : this()
+        public Extensions(JObject jobj, UriKind uriKind = UriKind.RelativeOrAbsolute) : this()
         {
             foreach (var item in jobj)
             {
-                map.Add(new Uri(item.Key), item.Value); 
+                map.Add(new Uri(item.Key, uriKind), item.Value); 
             }
         }
 

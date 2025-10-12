@@ -1,6 +1,8 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 2012
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36518.9 d17.14
+MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TinCan", "TinCan\TinCan.csproj", "{27D0FCA1-E869-440C-9D16-F62D7A068C53}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TinCanTests", "TinCanTests\TinCanTests.csproj", "{854413C2-2F81-4A82-9949-DE2868A10078}"
@@ -15,6 +17,10 @@ Global
 		Release-net40|Any CPU = Release-net40|Any CPU
 		Release-net45|Any CPU = Release-net45|Any CPU
 		Release-net45-signed|Any CPU = Release-net45-signed|Any CPU
+		Release-net46|Any CPU = Release-net46|Any CPU
+		Release-net462|Any CPU = Release-net462|Any CPU
+		Release-net472|Any CPU = Release-net472|Any CPU
+		Release-net481|Any CPU = Release-net481|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{27D0FCA1-E869-440C-9D16-F62D7A068C53}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
@@ -29,6 +35,14 @@ Global
 		{27D0FCA1-E869-440C-9D16-F62D7A068C53}.Release-net45|Any CPU.Build.0 = Release-net45|Any CPU
 		{27D0FCA1-E869-440C-9D16-F62D7A068C53}.Release-net45-signed|Any CPU.ActiveCfg = Release-net45-signed|Any CPU
 		{27D0FCA1-E869-440C-9D16-F62D7A068C53}.Release-net45-signed|Any CPU.Build.0 = Release-net45-signed|Any CPU
+		{27D0FCA1-E869-440C-9D16-F62D7A068C53}.Release-net46|Any CPU.ActiveCfg = Release-net46|Any CPU
+		{27D0FCA1-E869-440C-9D16-F62D7A068C53}.Release-net46|Any CPU.Build.0 = Release-net46|Any CPU
+		{27D0FCA1-E869-440C-9D16-F62D7A068C53}.Release-net462|Any CPU.ActiveCfg = Release-net462|Any CPU
+		{27D0FCA1-E869-440C-9D16-F62D7A068C53}.Release-net462|Any CPU.Build.0 = Release-net462|Any CPU
+		{27D0FCA1-E869-440C-9D16-F62D7A068C53}.Release-net472|Any CPU.ActiveCfg = Release-net472|Any CPU
+		{27D0FCA1-E869-440C-9D16-F62D7A068C53}.Release-net472|Any CPU.Build.0 = Release-net472|Any CPU
+		{27D0FCA1-E869-440C-9D16-F62D7A068C53}.Release-net481|Any CPU.ActiveCfg = Release-net482|Any CPU
+		{27D0FCA1-E869-440C-9D16-F62D7A068C53}.Release-net481|Any CPU.Build.0 = Release-net482|Any CPU
 		{854413C2-2F81-4A82-9949-DE2868A10078}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{854413C2-2F81-4A82-9949-DE2868A10078}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{854413C2-2F81-4A82-9949-DE2868A10078}.Documentation|Any CPU.ActiveCfg = Documentation|Any CPU
@@ -40,6 +54,14 @@ Global
 		{854413C2-2F81-4A82-9949-DE2868A10078}.Release-net45|Any CPU.Build.0 = Release-net45|Any CPU
 		{854413C2-2F81-4A82-9949-DE2868A10078}.Release-net45-signed|Any CPU.ActiveCfg = Release-net45-signed|Any CPU
 		{854413C2-2F81-4A82-9949-DE2868A10078}.Release-net45-signed|Any CPU.Build.0 = Release-net45-signed|Any CPU
+		{854413C2-2F81-4A82-9949-DE2868A10078}.Release-net46|Any CPU.ActiveCfg = Documentation|Any CPU
+		{854413C2-2F81-4A82-9949-DE2868A10078}.Release-net46|Any CPU.Build.0 = Documentation|Any CPU
+		{854413C2-2F81-4A82-9949-DE2868A10078}.Release-net462|Any CPU.ActiveCfg = Release-net462|Any CPU
+		{854413C2-2F81-4A82-9949-DE2868A10078}.Release-net462|Any CPU.Build.0 = Release-net462|Any CPU
+		{854413C2-2F81-4A82-9949-DE2868A10078}.Release-net472|Any CPU.ActiveCfg = Release-net472|Any CPU
+		{854413C2-2F81-4A82-9949-DE2868A10078}.Release-net472|Any CPU.Build.0 = Release-net472|Any CPU
+		{854413C2-2F81-4A82-9949-DE2868A10078}.Release-net481|Any CPU.ActiveCfg = Release-net482|Any CPU
+		{854413C2-2F81-4A82-9949-DE2868A10078}.Release-net481|Any CPU.Build.0 = Release-net482|Any CPU
 		{F8D803AD-A192-4F8C-A582-674B75E42995}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{F8D803AD-A192-4F8C-A582-674B75E42995}.Documentation|Any CPU.ActiveCfg = Documentation|Any CPU
 		{F8D803AD-A192-4F8C-A582-674B75E42995}.Documentation|Any CPU.Build.0 = Documentation|Any CPU
@@ -48,8 +70,15 @@ Global
 		{F8D803AD-A192-4F8C-A582-674B75E42995}.Release-net40|Any CPU.ActiveCfg = Release-net35|Any CPU
 		{F8D803AD-A192-4F8C-A582-674B75E42995}.Release-net45|Any CPU.ActiveCfg = Release-net35|Any CPU
 		{F8D803AD-A192-4F8C-A582-674B75E42995}.Release-net45-signed|Any CPU.ActiveCfg = Release-net35|Any CPU
+		{F8D803AD-A192-4F8C-A582-674B75E42995}.Release-net46|Any CPU.ActiveCfg = Documentation|Any CPU
+		{F8D803AD-A192-4F8C-A582-674B75E42995}.Release-net462|Any CPU.ActiveCfg = Documentation|Any CPU
+		{F8D803AD-A192-4F8C-A582-674B75E42995}.Release-net472|Any CPU.ActiveCfg = Documentation|Any CPU
+		{F8D803AD-A192-4F8C-A582-674B75E42995}.Release-net481|Any CPU.ActiveCfg = Documentation|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {2EFADC24-9CFD-41AA-BAF9-874F5CECBCD3}
 	EndGlobalSection
 EndGlobal
