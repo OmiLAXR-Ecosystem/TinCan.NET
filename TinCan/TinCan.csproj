@@ -131,6 +131,7 @@
     <Compile Include="AgentAccount.cs" />
     <Compile Include="Activity.cs" />
     <Compile Include="ActivityDefinition.cs" />
+    <Compile Include="Attachment.cs" />
     <Compile Include="Context.cs" />
     <Compile Include="ContextActivities.cs" />
     <Compile Include="ContextAgent.cs" />
