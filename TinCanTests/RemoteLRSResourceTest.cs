@@ -40,11 +40,7 @@ namespace TinCanTests
             // so are okay to include in the repository, if you wish to have access to the
             // results of the test suite then supply your own endpoint, username, and password
             //
-            lrs = new RemoteLRS(
-                "https://cloud.scorm.com/tc/U2S4SI5FY0/sandbox/",
-                "Nja986GYE1_XrWMmFUE",
-                "Bd9lDr1kjaWWY6RID_4"
-            );
+            lrs = LrsTestConfig.Create();
         }
 
         [Test]
