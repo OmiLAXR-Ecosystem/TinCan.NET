@@ -34,6 +34,14 @@ namespace TinCan
         public String auth { get; set; }
         public Dictionary<String, String> extended { get; set; } = new Dictionary<String, String>();
 
+        /// <summary>
+        /// When true (default) a document save made without an ETag that the LRS rejects with
+        /// 409 Conflict or 412 Precondition Failed is retried once using the ETag the LRS
+        /// currently holds. This keeps the pre-xAPI-2.0 "last writer wins" behaviour for callers
+        /// that never tracked ETags. Set to false to surface the conflict to the caller instead.
+        /// </summary>
+        public bool resolveDocumentConflicts { get; set; } = true;
+
         public void SetAuth(String username, String password)
         {
             auth = "Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes(username + ":" + password));
@@ -455,7 +463,7 @@ namespace TinCan
                 return r;
             }
 
-            if (String.IsNullOrEmpty(originalEtag) &&
+            if (resolveDocumentConflicts && String.IsNullOrEmpty(originalEtag) &&
                 (res.status == HttpStatusCode.Conflict || res.status == HttpStatusCode.PreconditionFailed))
             {
                 String currentEtag = FetchDocumentEtag(resource, queryParams);
@@ -553,6 +561,56 @@ namespace TinCan
             AttachFiles(r.content, files);
 
             return r;
+        }
+
+        /// <summary>
+        /// Asks the LRS which xAPI versions it supports (via the About resource) and sets
+        /// <see cref="version"/> to the best one this library supports: 2.0.0 when the LRS
+        /// advertises any 2.x version, otherwise the highest advertised 1.0.x version.
+        /// <see cref="version"/> is left unchanged when the About call fails or the LRS does
+        /// not advertise any version this library supports.
+        /// </summary>
+        /// <returns>The About response, so callers can inspect failures and extensions.</returns>
+        public AboutLRSResponse NegotiateVersion()
+        {
+            AboutLRSResponse about = About();
+            TCAPIVersion negotiated = SelectVersion(about);
+            if (negotiated != null)
+            {
+                version = negotiated;
+            }
+
+            return about;
+        }
+
+        internal static TCAPIVersion SelectVersion(AboutLRSResponse about)
+        {
+            if (about == null || !about.success || about.content == null || about.content.version == null)
+            {
+                return null;
+            }
+
+            TCAPIVersion bestLegacy = null;
+            foreach (TCAPIVersion advertised in about.content.version)
+            {
+                if (advertised == null)
+                {
+                    continue;
+                }
+
+                if (advertised.major >= 2)
+                {
+                    return TCAPIVersion.V200;
+                }
+
+                if (advertised.major == 1 && TCAPIVersion.GetSupported().ContainsKey(advertised.ToString())
+                    && (bestLegacy == null || advertised > bestLegacy))
+                {
+                    bestLegacy = advertised;
+                }
+            }
+
+            return bestLegacy;
         }
 
         public AboutLRSResponse About()
