@@ -98,8 +98,10 @@
     <Compile Include="AgentTest.cs" />
     <Compile Include="ContextActivitiesTest.cs" />
     <Compile Include="ContextTest.cs" />
+    <Compile Include="AttachmentTest.cs" />
     <Compile Include="LrsTestConfig.cs" />
     <Compile Include="ResultTest.cs" />
+    <Compile Include="StatementsQueryTest.cs" />
     <Compile Include="Support.cs" />
     <Compile Include="SubStatementTest.cs" />
     <Compile Include="StatementTest.cs" />

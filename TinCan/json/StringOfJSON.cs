@@ -14,6 +14,8 @@
     limitations under the License.
 */
 using System;
+using System.IO;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace TinCan.Json
@@ -34,7 +36,13 @@ namespace TinCan.Json
                 return null;
             }
 
-            return JObject.Parse(source);
+            // Keep timestamp strings intact. Default date parsing drops offsets
+            // and can truncate fractional seconds before xAPI reads them.
+            using (var reader = new JsonTextReader(new StringReader(source)))
+            {
+                reader.DateParseHandling = DateParseHandling.None;
+                return JObject.Load(reader);
+            }
         }
 
         public override String ToString()
