@@ -78,7 +78,7 @@ namespace TinCan
             }
             if (duration != null)
             {
-                result.Add("duration", XmlConvert.ToString((TimeSpan)duration));
+                result.Add("duration", XmlConvert.ToString(TruncateDuration(duration.Value)));
             }
             if (score != null)
             {
@@ -90,6 +90,14 @@ namespace TinCan
             }
 
             return result;
+        }
+
+        static TimeSpan TruncateDuration(TimeSpan value)
+        {
+            // xAPI allows at most 0.01 second precision on the wire.
+            const long ticksPerCentisecond = TimeSpan.TicksPerMillisecond * 10;
+            long ticks = value.Ticks - (value.Ticks % ticksPerCentisecond);
+            return TimeSpan.FromTicks(ticks);
         }
 
         public static explicit operator Result(JObject jobj)

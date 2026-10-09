@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Security.Cryptography;
+using System.Text;
 using Newtonsoft.Json.Linq;
 using TinCan.Json;
 
@@ -31,17 +33,59 @@ namespace TinCan
             if (jobj["fileUrl"] != null) fileUrl = new Uri(jobj.Value<string>("fileUrl"));
         }
 
+        public void EnsureHashAndLength()
+        {
+            if (content == null)
+            {
+                return;
+            }
+
+            if (length == 0)
+            {
+                length = content.Length;
+            }
+
+            if (string.IsNullOrEmpty(sha2))
+            {
+                using (var sha = new SHA256Managed())
+                {
+                    byte[] hash = sha.ComputeHash(content);
+                    var builder = new StringBuilder(hash.Length * 2);
+                    foreach (byte b in hash)
+                    {
+                        builder.Append(b.ToString("x2"));
+                    }
+                    sha2 = builder.ToString();
+                }
+            }
+        }
+
         public override JObject ToJObject(TCAPIVersion version)
         {
-            var result = new JObject
-            {
-                { "usageType", usageType?.ToString() },
-                { "display", display?.ToJObject(version) },
-                { "contentType", contentType },
-                { "length", length },
-                { "sha2", sha2 }
-            };
+            EnsureHashAndLength();
 
+            var result = new JObject();
+
+            if (usageType != null)
+            {
+                result.Add("usageType", usageType.ToString());
+            }
+            if (display != null)
+            {
+                result.Add("display", display.ToJObject(version));
+            }
+            if (contentType != null)
+            {
+                result.Add("contentType", contentType);
+            }
+            if (length != 0 || content != null)
+            {
+                result.Add("length", length);
+            }
+            if (sha2 != null)
+            {
+                result.Add("sha2", sha2);
+            }
             if (description != null)
             {
                 result.Add("description", description.ToJObject(version));
