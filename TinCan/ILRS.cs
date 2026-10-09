@@ -28,24 +28,32 @@ namespace TinCan
         StatementLRSResponse VoidStatement(Guid id, Agent agent);
         StatementsResultLRSResponse SaveStatements(List<Statement> statements);
         StatementLRSResponse RetrieveStatement(Guid id);
+        StatementLRSResponse RetrieveStatement(Guid id, bool attachments);
         StatementLRSResponse RetrieveVoidedStatement(Guid id);
+        StatementLRSResponse RetrieveVoidedStatement(Guid id, bool attachments);
         StatementsResultLRSResponse QueryStatements(StatementsQuery query);
         StatementsResultLRSResponse MoreStatements(StatementsResult result);
 
-        ProfileKeysLRSResponse RetrieveStateIds(Activity activity, Agent agent, Nullable<Guid> registration = null);
+        PersonLRSResponse RetrieveAgent(Agent agent);
+        ActivityLRSResponse RetrieveActivity(Uri activityId);
+
+        ProfileKeysLRSResponse RetrieveStateIds(Activity activity, Agent agent, Nullable<Guid> registration = null, Nullable<DateTime> since = null);
         StateLRSResponse RetrieveState(String id, Activity activity, Agent agent, Nullable<Guid> registration = null);
         LRSResponse SaveState(StateDocument state);
+        LRSResponse UpdateState(StateDocument state);
         LRSResponse DeleteState(StateDocument state);
         LRSResponse ClearState(Activity activity, Agent agent, Nullable<Guid> registration = null);
 
-        ProfileKeysLRSResponse RetrieveActivityProfileIds(Activity activity);
+        ProfileKeysLRSResponse RetrieveActivityProfileIds(Activity activity, Nullable<DateTime> since = null);
         ActivityProfileLRSResponse RetrieveActivityProfile(String id, Activity activity);
         LRSResponse SaveActivityProfile(ActivityProfileDocument profile);
+        LRSResponse UpdateActivityProfile(ActivityProfileDocument profile);
         LRSResponse DeleteActivityProfile(ActivityProfileDocument profile);
 
-        ProfileKeysLRSResponse RetrieveAgentProfileIds(Agent agent);
+        ProfileKeysLRSResponse RetrieveAgentProfileIds(Agent agent, Nullable<DateTime> since = null);
         AgentProfileLRSResponse RetrieveAgentProfile(String id, Agent agent);
         LRSResponse SaveAgentProfile(AgentProfileDocument profile);
+        LRSResponse UpdateAgentProfile(AgentProfileDocument profile);
         LRSResponse DeleteAgentProfile(AgentProfileDocument profile);
     }
 }

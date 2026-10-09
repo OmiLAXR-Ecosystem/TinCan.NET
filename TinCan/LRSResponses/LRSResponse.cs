@@ -14,6 +14,7 @@
     limitations under the License.
 */
 using System;
+using System.Net;
 
 namespace TinCan.LRSResponses
 {
@@ -26,6 +27,8 @@ namespace TinCan.LRSResponses
         public Boolean success { get; set; }
         public Exception httpException { get; set; }
         public String errMsg { get; set; }
+        public HttpStatusCode? httpStatus { get; set; }
+        public String lrsVersion { get; set; }
 
         public void SetErrMsgFromBytes(byte[] content)
         {

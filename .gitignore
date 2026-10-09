@@ -117,3 +117,6 @@ Doc/Help/
 .DS_Store
 *.swp
 tmp/
+
+# Local xAPI endpoint credentials for integration tests
+TinCanTests/local.xapi.env

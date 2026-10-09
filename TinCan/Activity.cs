@@ -70,7 +70,7 @@ namespace TinCan
 
             if (id != null)
             {
-                result.Add("id", id);
+                result.Add("id", id.ToString());
             }
             if (definition != null)
             {
