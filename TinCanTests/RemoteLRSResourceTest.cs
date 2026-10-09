@@ -353,5 +353,63 @@ namespace TinCanTests
             LRSResponse lrsRes = lrs.SaveState(doc);
             Assert.IsTrue(lrsRes.success);
         }
+
+        [Test]
+        public void TestAttachmentRoundTrip()
+        {
+            var statement = new Statement();
+            statement.actor = Support.agent;
+            statement.verb = Support.verb;
+            statement.target = Support.activity;
+
+            var attachment = new Attachment();
+            attachment.usageType = new Uri("http://example.com/attachments/test");
+            attachment.display = new LanguageMap();
+            attachment.display.Add("en", "note");
+            attachment.contentType = "text/plain";
+            attachment.content = System.Text.Encoding.UTF8.GetBytes("hello attachment");
+            statement.attachments = new System.Collections.Generic.List<Attachment>();
+            statement.attachments.Add(attachment);
+
+            StatementLRSResponse saved = lrs.SaveStatement(statement);
+            Assert.IsTrue(saved.success, saved.errMsg);
+
+            StatementLRSResponse fetched = lrs.RetrieveStatement(saved.content.id.Value, true);
+            Assert.IsTrue(fetched.success, fetched.errMsg);
+            Assert.IsNotNull(fetched.content.attachments);
+            Assert.AreEqual(1, fetched.content.attachments.Count);
+            Assert.AreEqual("hello attachment", System.Text.Encoding.UTF8.GetString(fetched.content.attachments[0].content));
+        }
+
+        [Test]
+        public void TestRetrieveAgentResource()
+        {
+            PersonLRSResponse lrsRes = lrs.RetrieveAgent(Support.agent);
+            Assert.IsTrue(lrsRes.success, lrsRes.errMsg);
+            Assert.IsNotNull(lrsRes.content);
+            Assert.IsNotNull(lrsRes.content.mbox);
+        }
+
+        [Test]
+        public void TestRetrieveActivityResource()
+        {
+            lrs.SaveStatement(new Statement
+            {
+                actor = Support.agent,
+                verb = Support.verb,
+                target = Support.activity
+            });
+
+            ActivityLRSResponse lrsRes = lrs.RetrieveActivity(Support.activity.id);
+            Assert.IsTrue(lrsRes.success, lrsRes.errMsg);
+            Assert.AreEqual(Support.activity.id, lrsRes.content.id);
+        }
+
+        [Test]
+        public void TestRetrieveStateIdsSince()
+        {
+            ProfileKeysLRSResponse lrsRes = lrs.RetrieveStateIds(Support.activity, Support.agent, null, DateTime.UtcNow.AddDays(1));
+            Assert.IsTrue(lrsRes.success, lrsRes.errMsg);
+        }
     }
 }

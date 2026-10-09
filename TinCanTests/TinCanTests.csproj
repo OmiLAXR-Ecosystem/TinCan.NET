@@ -100,6 +100,8 @@
     <Compile Include="ContextTest.cs" />
     <Compile Include="AttachmentTest.cs" />
     <Compile Include="LrsTestConfig.cs" />
+    <Compile Include="MultipartMixedTest.cs" />
+    <Compile Include="PersonTest.cs" />
     <Compile Include="ResultTest.cs" />
     <Compile Include="StatementsQueryTest.cs" />
     <Compile Include="Support.cs" />
