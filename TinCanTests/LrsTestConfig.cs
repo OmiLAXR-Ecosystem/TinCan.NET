@@ -18,6 +18,7 @@ namespace TinCanTests
     using System;
     using System.IO;
     using TinCan;
+    using TinCan.LRSResponses;
 
     static class LrsTestConfig
     {
@@ -53,7 +54,38 @@ namespace TinCanTests
                 password = FallbackPassword;
             }
 
-            return new RemoteLRS(endpoint, username, password);
+            var lrs = new RemoteLRS(endpoint, TCAPIVersion.V200, username, password);
+            NegotiateVersion(lrs);
+            return lrs;
+        }
+
+        static void NegotiateVersion(RemoteLRS lrs)
+        {
+            AboutLRSResponse about = lrs.About();
+            if (!about.success || about.content == null || about.content.version == null)
+            {
+                return;
+            }
+
+            TCAPIVersion bestLegacy = null;
+            foreach (TCAPIVersion advertised in about.content.version)
+            {
+                if (advertised.major >= 2)
+                {
+                    lrs.version = TCAPIVersion.V200;
+                    return;
+                }
+
+                if (advertised.major == 1 && (bestLegacy == null || advertised > bestLegacy))
+                {
+                    bestLegacy = advertised;
+                }
+            }
+
+            if (bestLegacy != null)
+            {
+                lrs.version = bestLegacy;
+            }
         }
 
         static void ApplyFile(string path, ref string endpoint, ref string username, ref string password)

@@ -168,6 +168,7 @@
     <Compile Include="Json\JsonModel.cs" />
     <Compile Include="Json\IJsonModel.cs" />
     <Compile Include="Json\StringOfJSON.cs" />
+    <Compile Include="Json\Timestamp.cs" />
     <Compile Include="LanguageMap.cs" />
     <Compile Include="StatementTarget.cs" />
     <Compile Include="Verb.cs" />

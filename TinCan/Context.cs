@@ -111,7 +111,6 @@ namespace TinCan
                 extensions = (Extensions)jobj.Value<JObject>("extensions");
             }
             
-            // ✅ xAPI 2.0: Parse contextAgents
             if (jobj["contextAgents"] is JArray agentArray)
             {
                 contextAgents = new List<ContextAgent>();
@@ -119,18 +118,11 @@ namespace TinCan
                 {
                     if (item is JObject obj)
                     {
-                        contextAgents.Add(new ContextAgent
-                        {
-                            agent = obj["agent"] != null ? new Agent((JObject)obj["agent"]) : null,
-                            relevantTypes = obj["relevantTypes"] is JArray rtArr
-                                ? rtArr.ToObject<List<Uri>>()
-                                : null
-                        });
+                        contextAgents.Add(new ContextAgent(obj));
                     }
                 }
             }
 
-            // ✅ xAPI 2.0: Parse contextGroups
             if (jobj["contextGroups"] is JArray groupArray)
             {
                 contextGroups = new List<ContextGroup>();
@@ -138,13 +130,7 @@ namespace TinCan
                 {
                     if (item is JObject obj)
                     {
-                        contextGroups.Add(new ContextGroup
-                        {
-                            group = obj["group"] != null ? new Group((JObject)obj["group"]) : null,
-                            relevantTypes = obj["relevantTypes"] is JArray rtArr
-                                ? rtArr.ToObject<List<Uri>>()
-                                : null
-                        });
+                        contextGroups.Add(new ContextGroup(obj));
                     }
                 }
             }
@@ -199,27 +185,30 @@ namespace TinCan
                 result.Add("extensions", extensions.ToJObject(version));
             }
 
-            // ✅ xAPI 2.0 additions:
-            if (contextAgents != null && contextAgents.Count > 0)
+            // contextAgents and contextGroups exist only in xAPI 2.0.
+            if (version == null || version.IsAtLeast(TCAPIVersion.V200))
             {
-                var array = new JArray();
-                foreach (var ca in contextAgents.Where(ca => ca != null))
+                if (contextAgents != null && contextAgents.Count > 0)
                 {
-                    array.Add(ca.ToJObject(version));
+                    var array = new JArray();
+                    foreach (var ca in contextAgents.Where(ca => ca != null))
+                    {
+                        array.Add(ca.ToJObject(version));
+                    }
+
+                    result.Add("contextAgents", array);
                 }
 
-                result.Add("contextAgents", array);
-            }
-
-            if (contextGroups != null && contextGroups.Count > 0)
-            {
-                var array = new JArray();
-                foreach (var cg in contextGroups.Where(cg => cg != null))
+                if (contextGroups != null && contextGroups.Count > 0)
                 {
-                    array.Add(cg.ToJObject(version));
-                }
+                    var array = new JArray();
+                    foreach (var cg in contextGroups.Where(cg => cg != null))
+                    {
+                        array.Add(cg.ToJObject(version));
+                    }
 
-                result.Add("contextGroups", array);
+                    result.Add("contextGroups", array);
+                }
             }
 
 

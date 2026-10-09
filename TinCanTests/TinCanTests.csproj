@@ -9,7 +9,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>TinCanTests</RootNamespace>
     <AssemblyName>TinCanTests</AssemblyName>
-    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
@@ -98,12 +98,17 @@
     <Compile Include="AgentTest.cs" />
     <Compile Include="ContextActivitiesTest.cs" />
     <Compile Include="ContextTest.cs" />
-    <Compile Include="AttachmentTest.cs" />
+    <Compile Include="ContextAgentTest.cs" />
+    <Compile Include="ContextGroupTest.cs" />
     <Compile Include="LrsTestConfig.cs" />
     <Compile Include="MultipartMixedTest.cs" />
     <Compile Include="PersonTest.cs" />
     <Compile Include="ResultTest.cs" />
+    <Compile Include="AboutTest.cs" />
+    <Compile Include="AttachmentTest.cs" />
     <Compile Include="StatementsQueryTest.cs" />
+    <Compile Include="TCAPIVersionTest.cs" />
+    <Compile Include="TimestampTest.cs" />
     <Compile Include="Support.cs" />
     <Compile Include="SubStatementTest.cs" />
     <Compile Include="StatementTest.cs" />

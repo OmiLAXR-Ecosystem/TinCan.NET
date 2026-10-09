@@ -18,7 +18,7 @@ namespace TinCanTests
             Assert.AreEqual("mailto:alice@example.com", person.mbox[0]);
             Assert.AreEqual("alice", person.account[0].name);
 
-            JObject serialized = person.ToJObject(TCAPIVersion.latest());
+            JObject serialized = person.ToJObject(TCAPIVersion.V200);
             Assert.AreEqual(Person.OBJECT_TYPE, (string)serialized["objectType"]);
             Assert.AreEqual("Alice", (string)serialized["name"][0]);
             Assert.AreEqual("http://example.com/", (string)serialized["account"][0]["homePage"]);

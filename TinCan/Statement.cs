@@ -23,9 +23,6 @@ namespace TinCan
 {
     public class Statement : StatementBase
     {
-        // TODO: put in common location
-        private const String ISODateTimeFormat = "o";
-
         public Nullable<Guid> id { get; set; }
         public Nullable<DateTime> stored { get; set; }
         public Agent authority { get; set; }
@@ -50,7 +47,7 @@ namespace TinCan
 
             if (jobj["stored"] != null)
             {
-                stored = jobj.Value<DateTime>("stored");
+                stored = Json.Timestamp.Parse(jobj.Value<String>("stored"));
             }
 
             if (jobj["authority"] != null)
@@ -93,7 +90,7 @@ namespace TinCan
 
             if (stored != null)
             {
-                result.Add("stored", stored.Value.ToString(ISODateTimeFormat));
+                result.Add("stored", Json.Timestamp.Format(stored.Value));
             }
 
             if (authority != null)
@@ -101,9 +98,9 @@ namespace TinCan
                 result.Add("authority", authority.ToJObject(version));
             }
 
-            if (version != null)
+            if (this.version != null)
             {
-                result.Add("version", version.ToString());
+                result.Add("version", this.version.ToString());
             }
 
             if (attachments != null && attachments.Count > 0)

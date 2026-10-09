@@ -20,8 +20,6 @@ namespace TinCan
 {
     public class StatementsQuery
     {
-        private const string ISODateTimeFormat = "o";
-
         public Agent agent { get; set; }
         public Uri verbId { get; set; }
         public Uri activityId;
@@ -67,11 +65,11 @@ namespace TinCan
             }
             if (since != null)
             {
-                result.Add("since", since.Value.ToString(ISODateTimeFormat));
+                result.Add("since", Json.Timestamp.Format(since.Value));
             }
             if (until != null)
             {
-                result.Add("until", until.Value.ToString(ISODateTimeFormat));
+                result.Add("until", Json.Timestamp.Format(until.Value));
             }
             if (limit != null)
             {

@@ -73,7 +73,7 @@ namespace TinCanTests
             var obj = new Result();
             obj.duration = TimeSpan.FromTicks(12340000);
 
-            JObject json = obj.ToJObject(TCAPIVersion.latest());
+            JObject json = obj.ToJObject(TCAPIVersion.V200);
             Assert.AreEqual("PT1.23S", (string)json["duration"]);
         }
     }

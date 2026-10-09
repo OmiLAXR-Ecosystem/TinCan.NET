@@ -355,8 +355,63 @@ namespace TinCanTests
         }
 
         [Test]
+        public void TestSaveStateConcurrencyRetry()
+        {
+            var doc = new StateDocument();
+            doc.activity = Support.activity;
+            doc.agent = Support.agent;
+            doc.id = "etag-" + Guid.NewGuid().ToString("N");
+            doc.content = System.Text.Encoding.UTF8.GetBytes("one");
+
+            LRSResponse first = lrs.SaveState(doc);
+            Assert.IsTrue(first.success, first.errMsg);
+
+            doc.etag = null;
+            doc.content = System.Text.Encoding.UTF8.GetBytes("two");
+            LRSResponse second = lrs.SaveState(doc);
+            Assert.IsTrue(second.success, second.errMsg);
+
+            StateLRSResponse fetched = lrs.RetrieveState(doc.id, Support.activity, Support.agent);
+            Assert.IsTrue(fetched.success, fetched.errMsg);
+            Assert.AreEqual("two", System.Text.Encoding.UTF8.GetString(fetched.content.content));
+        }
+
+        [Test]
+        public void TestSaveStatementContextAgent()
+        {
+            RequireXapi2();
+
+            var statement = new Statement();
+            statement.actor = Support.agent;
+            statement.verb = Support.verb;
+            statement.target = Support.activity;
+            statement.context = new Context();
+            statement.context.contextAgents = new System.Collections.Generic.List<ContextAgent>();
+            statement.context.contextAgents.Add(new ContextAgent
+            {
+                agent = Support.agent,
+                relevantTypes = new System.Collections.Generic.List<Uri>
+                {
+                    new Uri("http://id.tincanapi.com/activitytype/instructor")
+                }
+            });
+
+            StatementLRSResponse saved = lrs.SaveStatement(statement);
+            Assert.IsTrue(saved.success, saved.errMsg);
+
+            StatementLRSResponse fetched = lrs.RetrieveStatement(saved.content.id.Value);
+            Assert.IsTrue(fetched.success, fetched.errMsg);
+            Assert.IsNotNull(fetched.content.context);
+            Assert.IsNotNull(fetched.content.context.contextAgents);
+            Assert.AreEqual(ContextAgent.OBJECT_TYPE, "contextAgent");
+            Assert.Greater(fetched.content.context.contextAgents.Count, 0);
+        }
+
+        [Test]
         public void TestAttachmentRoundTrip()
         {
+            RequireXapi2();
+
             var statement = new Statement();
             statement.actor = Support.agent;
             statement.verb = Support.verb;
@@ -410,6 +465,26 @@ namespace TinCanTests
         {
             ProfileKeysLRSResponse lrsRes = lrs.RetrieveStateIds(Support.activity, Support.agent, null, DateTime.UtcNow.AddDays(1));
             Assert.IsTrue(lrsRes.success, lrsRes.errMsg);
+        }
+
+        void RequireXapi2()
+        {
+            AboutLRSResponse about = lrs.About();
+            Assert.IsTrue(about.success, about.errMsg);
+            if (about.content.version == null)
+            {
+                Assert.Ignore("LRS does not advertise xAPI 2.0");
+            }
+
+            foreach (TCAPIVersion version in about.content.version)
+            {
+                if (version.major >= 2)
+                {
+                    return;
+                }
+            }
+
+            Assert.Ignore("LRS does not advertise xAPI 2.0");
         }
     }
 }

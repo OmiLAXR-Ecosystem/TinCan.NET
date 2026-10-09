@@ -58,6 +58,8 @@ namespace TinCan
             public String contentType { get; set; }
             public byte[] content { get; set; }
             public String accept { get; set; }
+            public String ifMatch { get; set; }
+            public String ifNoneMatch { get; set; }
         }
 
         private class MyHTTPResponse
@@ -137,6 +139,14 @@ namespace TinCan
                 webReq.Headers.Add("Authorization", auth);
             }
             webReq.Accept = string.IsNullOrEmpty(req.accept) ? "application/json" : req.accept;
+            if (!string.IsNullOrEmpty(req.ifMatch))
+            {
+                webReq.Headers.Add("If-Match", req.ifMatch);
+            }
+            if (!string.IsNullOrEmpty(req.ifNoneMatch))
+            {
+                webReq.Headers.Add("If-None-Match", req.ifNoneMatch);
+            }
             foreach (KeyValuePair<String, String> entry in req.headers)
             {
                 webReq.Headers.Add(entry.Key, entry.Value);
@@ -338,6 +348,42 @@ namespace TinCan
             req.content = Encoding.UTF8.GetBytes(json);
         }
 
+        private MyHTTPResponse SendDocument(String resource, Dictionary<String, String> queryParams, Document document, String method, String etag)
+        {
+            var req = new MyHTTPRequest();
+            req.method = method;
+            req.resource = resource;
+            req.queryParams = queryParams;
+            req.contentType = document.contentType;
+            req.content = document.content;
+            if (!String.IsNullOrEmpty(etag))
+            {
+                req.ifMatch = etag;
+            }
+            else
+            {
+                req.ifNoneMatch = "*";
+            }
+
+            return MakeSyncRequest(req);
+        }
+
+        private String FetchDocumentEtag(String resource, Dictionary<String, String> queryParams)
+        {
+            var req = new MyHTTPRequest();
+            req.method = "GET";
+            req.resource = resource;
+            req.queryParams = queryParams;
+
+            var res = MakeSyncRequest(req);
+            if (res.status == HttpStatusCode.OK && !String.IsNullOrEmpty(res.etag))
+            {
+                return res.etag;
+            }
+
+            return null;
+        }
+
         private MyHTTPResponse GetDocument(String resource, Dictionary<String, String> queryParams, Document document)
         {
             var req = new MyHTTPRequest();
@@ -395,43 +441,64 @@ namespace TinCan
         private LRSResponse SaveDocument(String resource, Dictionary<String, String> queryParams, Document document, String method = "PUT")
         {
             var r = new LRSResponse();
+            String originalEtag = document.etag;
 
-            var req = new MyHTTPRequest();
-            req.method = method;
-            req.resource = resource;
-            req.queryParams = queryParams;
-            req.contentType = document.contentType;
-            req.content = document.content;
-
-            var res = MakeSyncRequest(req);
-            ApplyTransport(r, res);
-            if (!IsDocumentSuccess(res))
+            var res = SendDocument(resource, queryParams, document, method, originalEtag);
+            if (IsDocumentSuccess(res))
             {
-                r.success = false;
-                r.httpException = res.ex;
-                if (res.content != null)
+                if (!String.IsNullOrEmpty(res.etag))
                 {
-                    r.SetErrMsgFromBytes(res.content);
+                    document.etag = res.etag;
                 }
+                r.success = true;
+                ApplyTransport(r, res);
                 return r;
             }
 
-            if (!String.IsNullOrEmpty(res.etag))
+            if (String.IsNullOrEmpty(originalEtag) &&
+                (res.status == HttpStatusCode.Conflict || res.status == HttpStatusCode.PreconditionFailed))
             {
-                document.etag = res.etag;
+                String currentEtag = FetchDocumentEtag(resource, queryParams);
+                if (!String.IsNullOrEmpty(currentEtag))
+                {
+                    res = SendDocument(resource, queryParams, document, method, currentEtag);
+                    if (IsDocumentSuccess(res))
+                    {
+                        document.etag = String.IsNullOrEmpty(res.etag) ? currentEtag : res.etag;
+                        r.success = true;
+                        ApplyTransport(r, res);
+                        return r;
+                    }
+                }
             }
-            r.success = true;
+
+            r.success = false;
+            r.httpException = res.ex;
+            ApplyTransport(r, res);
+            if (res.content != null)
+            {
+                r.SetErrMsgFromBytes(res.content);
+            }
             return r;
         }
 
-        private LRSResponse DeleteDocument(String resource, Dictionary<String, String> queryParams)
+        private LRSResponse DeleteDocument(String resource, Dictionary<String, String> queryParams, String etag = null, bool concurrency = true)
         {
             var r = new LRSResponse();
+
+            if (concurrency && String.IsNullOrEmpty(etag))
+            {
+                etag = FetchDocumentEtag(resource, queryParams);
+            }
 
             var req = new MyHTTPRequest();
             req.method = "DELETE";
             req.resource = resource;
             req.queryParams = queryParams;
+            if (concurrency && !String.IsNullOrEmpty(etag))
+            {
+                req.ifMatch = etag;
+            }
 
             var res = MakeSyncRequest(req);
             ApplyTransport(r, res);
@@ -743,7 +810,7 @@ namespace TinCan
             }
             if (since != null)
             {
-                queryParams.Add("since", since.Value.ToString("o"));
+                queryParams.Add("since", Json.Timestamp.Format(since.Value));
             }
 
             return GetProfileKeys("activities/state", queryParams);
@@ -819,7 +886,7 @@ namespace TinCan
                 queryParams.Add("registration", state.registration.ToString());
             }
 
-            return DeleteDocument("activities/state", queryParams);
+            return DeleteDocument("activities/state", queryParams, state.etag, true);
         }
         public LRSResponse ClearState(Activity activity, Agent agent, Nullable<Guid> registration = null)
         {
@@ -831,7 +898,7 @@ namespace TinCan
                 queryParams.Add("registration", registration.ToString());
             }
 
-            return DeleteDocument("activities/state", queryParams);
+            return DeleteDocument("activities/state", queryParams, null, false);
         }
 
         public ProfileKeysLRSResponse RetrieveActivityProfileIds(Activity activity, Nullable<DateTime> since = null)
@@ -840,7 +907,7 @@ namespace TinCan
             queryParams.Add("activityId", activity.id.ToString());
             if (since != null)
             {
-                queryParams.Add("since", since.Value.ToString("o"));
+                queryParams.Add("since", Json.Timestamp.Format(since.Value));
             }
 
             return GetProfileKeys("activities/profile", queryParams);
@@ -893,7 +960,7 @@ namespace TinCan
             queryParams.Add("profileId", profile.id);
             queryParams.Add("activityId", profile.activity.id.ToString());
 
-            return DeleteDocument("activities/profile", queryParams);
+            return DeleteDocument("activities/profile", queryParams, profile.etag, true);
         }
 
         public ProfileKeysLRSResponse RetrieveAgentProfileIds(Agent agent, Nullable<DateTime> since = null)
@@ -902,7 +969,7 @@ namespace TinCan
             queryParams.Add("agent", agent.ToJSON(version));
             if (since != null)
             {
-                queryParams.Add("since", since.Value.ToString("o"));
+                queryParams.Add("since", Json.Timestamp.Format(since.Value));
             }
 
             return GetProfileKeys("agents/profile", queryParams);
@@ -955,7 +1022,7 @@ namespace TinCan
             queryParams.Add("profileId", profile.id);
             queryParams.Add("agent", profile.agent.ToJSON(version));
 
-            return DeleteDocument("agents/profile", queryParams);
+            return DeleteDocument("agents/profile", queryParams, profile.etag, true);
         }
 
         public PersonLRSResponse RetrieveAgent(Agent agent)

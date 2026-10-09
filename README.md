@@ -10,6 +10,8 @@ http://tincanapi.com/
 
 Requires .NET 3.5 or later.
 
+Supports the xAPI 1.0.0 through 1.0.3 statement model and xAPI 2.0.0 (IEEE 9274.1.1), including `contextAgents`/`contextGroups`, document concurrency headers, and multipart statement attachments.
+
 ### Installation
 
 Available via NuGet.

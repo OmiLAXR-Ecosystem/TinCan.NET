@@ -19,7 +19,7 @@ namespace TinCanTests
             attachment.contentType = "text/plain";
             attachment.content = Encoding.UTF8.GetBytes("hi");
 
-            JObject json = attachment.ToJObject(TCAPIVersion.latest());
+            JObject json = attachment.ToJObject(TCAPIVersion.V200);
             Assert.IsFalse(json.ContainsKey("description"));
             Assert.IsFalse(json.ContainsKey("fileUrl"));
             Assert.AreEqual(2, (int)json["length"]);
@@ -29,7 +29,7 @@ namespace TinCanTests
         [Test]
         public void TestEmptyAttachmentHasNoNullProperties()
         {
-            JObject json = new Attachment().ToJObject(TCAPIVersion.latest());
+            JObject json = new Attachment().ToJObject(TCAPIVersion.V200);
             Assert.AreEqual(0, json.Count);
         }
     }
