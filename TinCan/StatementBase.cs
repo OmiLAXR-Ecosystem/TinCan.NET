@@ -21,8 +21,6 @@ namespace TinCan
 {
     public abstract class StatementBase : JsonModel
     {
-        private const String ISODateTimeFormat = "o";
-
         public Agent actor { get; set; }
         public Verb verb { get; set; }
         public StatementTarget target { get; set; }
@@ -86,7 +84,7 @@ namespace TinCan
             }
             if (jobj["timestamp"] != null)
             {
-                timestamp = jobj.Value<DateTime>("timestamp");
+                timestamp = Json.Timestamp.Parse(jobj.Value<String>("timestamp"));
             }
         }
 
@@ -118,7 +116,7 @@ namespace TinCan
             }
             if (timestamp != null)
             {
-                result.Add("timestamp", timestamp.Value.ToString(ISODateTimeFormat));
+                result.Add("timestamp", Json.Timestamp.Format(timestamp.Value));
             }
 
             return result;

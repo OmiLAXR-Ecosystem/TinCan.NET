@@ -66,5 +66,15 @@ namespace TinCanTests
             Assert.That(obj.completion, Is.EqualTo(true));
             Assert.That(obj.response, Is.EqualTo("Yes"));
         }
+
+        [Test]
+        public void TestDurationTruncatedToCentiseconds()
+        {
+            var obj = new Result();
+            obj.duration = TimeSpan.FromTicks(12340000);
+
+            JObject json = obj.ToJObject(TCAPIVersion.V200);
+            Assert.AreEqual("PT1.23S", (string)json["duration"]);
+        }
     }
 }

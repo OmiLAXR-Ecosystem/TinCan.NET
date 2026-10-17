@@ -20,9 +20,6 @@ namespace TinCan
 {
     public class StatementsQuery
     {
-        // TODO: put in common location
-        private const string ISODateTimeFormat = "o";
-
         public Agent agent { get; set; }
         public Uri verbId { get; set; }
         public Uri activityId;
@@ -34,6 +31,7 @@ namespace TinCan
         public int? limit { get; set; }
         public StatementsQueryResultFormat format { get; set; }
         public bool? ascending { get; set; }
+        public bool? attachments { get; set; }
 
         public StatementsQuery() {}
 
@@ -59,19 +57,19 @@ namespace TinCan
             }
             if (relatedActivities != null)
             {
-                result.Add("related_activities", relatedActivities.Value.ToString());
+                result.Add("related_activities", FormatBool(relatedActivities.Value));
             }
             if (relatedAgents != null)
             {
-                result.Add("related_agents", relatedAgents.Value.ToString());
+                result.Add("related_agents", FormatBool(relatedAgents.Value));
             }
             if (since != null)
             {
-                result.Add("since", since.Value.ToString(ISODateTimeFormat));
+                result.Add("since", Json.Timestamp.Format(since.Value));
             }
             if (until != null)
             {
-                result.Add("until", until.Value.ToString(ISODateTimeFormat));
+                result.Add("until", Json.Timestamp.Format(until.Value));
             }
             if (limit != null)
             {
@@ -83,10 +81,19 @@ namespace TinCan
             }
             if (ascending != null)
             {
-                result.Add("ascending", ascending.Value.ToString());
+                result.Add("ascending", FormatBool(ascending.Value));
+            }
+            if (attachments != null)
+            {
+                result.Add("attachments", FormatBool(attachments.Value));
             }
 
             return result;
+        }
+
+        static string FormatBool(bool value)
+        {
+            return value ? "true" : "false";
         }
     }
 }

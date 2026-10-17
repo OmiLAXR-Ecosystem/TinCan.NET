@@ -26,6 +26,8 @@ namespace TinCanTests
     [TestFixture]
     class ContextTest
     {
+        // instructor and team are deprecated in xAPI 2.0 and kept for 1.0 compatibility.
+#pragma warning disable 618
         [TestCase(false)]
         [TestCase(true)]
         public void TestGroupInstructor(bool isGroup)
@@ -91,5 +93,6 @@ namespace TinCanTests
 
             return context;
         }
+#pragma warning restore 618
     }
 }

@@ -46,7 +46,17 @@ namespace TinCanTests
             Assert.IsNull(obj.timestamp);
             Assert.IsNull(obj.stored);
 
-            StringAssert.AreEqualIgnoringCase("{\"version\":\"1.0.3\"}", obj.ToJSON());
+            StringAssert.AreEqualIgnoringCase("{}", obj.ToJSON());
+        }
+
+        [Test]
+        public void TestTimestampRoundTripIsUtc()
+        {
+            Statement obj = new Statement(new StringOfJSON("{\"timestamp\":\"2020-01-02T04:04:05.006+01:00\"}"));
+            Assert.AreEqual(new DateTime(2020, 1, 2, 3, 4, 5, 6, DateTimeKind.Utc), obj.timestamp);
+
+            JObject serialized = obj.ToJObject(TCAPIVersion.V200);
+            Assert.AreEqual("2020-01-02T03:04:05.006Z", (string)serialized["timestamp"]);
         }
 
         [Test]

@@ -21,6 +21,7 @@ using System.Text;
 using System.Web;
 using Newtonsoft.Json.Linq;
 using TinCan.Documents;
+using TinCan.Http;
 using TinCan.LRSResponses;
 using System.Linq;
 
@@ -32,6 +33,14 @@ namespace TinCan
         public TCAPIVersion version { get; set; }
         public String auth { get; set; }
         public Dictionary<String, String> extended { get; set; } = new Dictionary<String, String>();
+
+        /// <summary>
+        /// When true (default) a document save made without an ETag that the LRS rejects with
+        /// 409 Conflict or 412 Precondition Failed is retried once using the ETag the LRS
+        /// currently holds. This keeps the pre-xAPI-2.0 "last writer wins" behaviour for callers
+        /// that never tracked ETags. Set to false to surface the conflict to the caller instead.
+        /// </summary>
+        public bool resolveDocumentConflicts { get; set; } = true;
 
         public void SetAuth(String username, String password)
         {
@@ -56,6 +65,9 @@ namespace TinCan
             public Dictionary<String, String> headers { get; set; } = new Dictionary<String, String>();
             public String contentType { get; set; }
             public byte[] content { get; set; }
+            public String accept { get; set; }
+            public String ifMatch { get; set; }
+            public String ifNoneMatch { get; set; }
         }
 
         private class MyHTTPResponse
@@ -65,6 +77,8 @@ namespace TinCan
             public byte[] content { get; set; }
             public DateTime lastModified { get; set; }
             public String etag { get; set; }
+            public String lrsVersion { get; set; }
+            public String consistentThrough { get; set; }
             public Exception ex { get; set; }
 
             public MyHTTPResponse() { }
@@ -72,7 +86,9 @@ namespace TinCan
             {
                 status = webResp.StatusCode;
                 contentType = webResp.ContentType;
-                etag = webResp.Headers.Get("Etag");
+                etag = webResp.Headers.Get("ETag");
+                lrsVersion = webResp.Headers.Get("X-Experience-API-Version");
+                consistentThrough = webResp.Headers.Get("X-Experience-API-Consistent-Through");
                 lastModified = webResp.LastModified;
 
                 using (var stream = webResp.GetResponseStream())
@@ -129,6 +145,15 @@ namespace TinCan
             if (auth != null)
             {
                 webReq.Headers.Add("Authorization", auth);
+            }
+            webReq.Accept = string.IsNullOrEmpty(req.accept) ? "application/json" : req.accept;
+            if (!string.IsNullOrEmpty(req.ifMatch))
+            {
+                webReq.Headers.Add("If-Match", req.ifMatch);
+            }
+            if (!string.IsNullOrEmpty(req.ifNoneMatch))
+            {
+                webReq.Headers.Add("If-None-Match", req.ifNoneMatch);
             }
             foreach (KeyValuePair<String, String> entry in req.headers)
             {
@@ -236,6 +261,137 @@ namespace TinCan
             return ret;
         }
 
+        private static void ApplyTransport(LRSResponse response, MyHTTPResponse http)
+        {
+            if (http == null)
+            {
+                return;
+            }
+
+            response.httpStatus = http.status;
+            response.lrsVersion = http.lrsVersion;
+        }
+
+        private static bool IsDocumentSuccess(MyHTTPResponse res)
+        {
+            return res.status == HttpStatusCode.NoContent || res.status == HttpStatusCode.OK;
+        }
+
+        private void ReadStatementBody(MyHTTPResponse res, out String json, out Dictionary<String, byte[]> files)
+        {
+            files = null;
+            if (res.content == null)
+            {
+                json = "";
+                return;
+            }
+
+            String contentType = res.contentType ?? "";
+            if (contentType.StartsWith("multipart/mixed", StringComparison.OrdinalIgnoreCase))
+            {
+                MultipartMixed parsed = MultipartMixed.Parse(contentType, res.content);
+                json = parsed.Json ?? "";
+                files = parsed.Files;
+                return;
+            }
+
+            json = Encoding.UTF8.GetString(res.content);
+        }
+
+        private static void AttachFiles(Statement statement, Dictionary<String, byte[]> files)
+        {
+            if (statement == null || statement.attachments == null || files == null)
+            {
+                return;
+            }
+
+            foreach (Attachment attachment in statement.attachments)
+            {
+                byte[] content;
+                if (attachment != null && attachment.sha2 != null && files.TryGetValue(attachment.sha2, out content))
+                {
+                    attachment.content = content;
+                }
+            }
+        }
+
+        private static List<Attachment> ContentAttachments(IEnumerable<Statement> statements)
+        {
+            var attachments = new List<Attachment>();
+            if (statements == null)
+            {
+                return attachments;
+            }
+
+            foreach (Statement statement in statements)
+            {
+                if (statement == null || statement.attachments == null)
+                {
+                    continue;
+                }
+
+                foreach (Attachment attachment in statement.attachments)
+                {
+                    if (attachment != null && attachment.content != null && attachment.content.Length > 0)
+                    {
+                        attachments.Add(attachment);
+                    }
+                }
+            }
+
+            return attachments;
+        }
+
+        private void SetStatementRequestBody(MyHTTPRequest req, String json, IList<Attachment> attachments)
+        {
+            if (attachments != null && attachments.Count > 0)
+            {
+                MultipartMixed body = MultipartMixed.Build(json, attachments);
+                req.contentType = body.ContentType;
+                req.content = body.Body;
+                return;
+            }
+
+            req.contentType = "application/json";
+            req.content = Encoding.UTF8.GetBytes(json);
+        }
+
+        private MyHTTPResponse SendDocument(String resource, Dictionary<String, String> queryParams, Document document, String method, String etag)
+        {
+            var req = new MyHTTPRequest();
+            req.method = method;
+            req.resource = resource;
+            req.queryParams = queryParams;
+            req.contentType = document.contentType;
+            req.content = document.content;
+            if (!String.IsNullOrEmpty(etag))
+            {
+                req.ifMatch = etag;
+            }
+            else
+            {
+                req.ifNoneMatch = "*";
+            }
+
+            return MakeSyncRequest(req);
+        }
+
+        private String FetchDocumentEtag(String resource, Dictionary<String, String> queryParams)
+        {
+            var req = new MyHTTPRequest();
+            req.method = "GET";
+            req.resource = resource;
+            req.queryParams = queryParams;
+
+            var res = MakeSyncRequest(req);
+            if (res.status == HttpStatusCode.OK && !String.IsNullOrEmpty(res.etag))
+            {
+                return res.etag;
+            }
+
+            return null;
+        }
+
         private MyHTTPResponse GetDocument(String resource, Dictionary<String, String> queryParams, Document document)
         {
             var req = new MyHTTPRequest();
@@ -265,11 +421,15 @@ namespace TinCan
             req.queryParams = queryParams;
 
             var res = MakeSyncRequest(req);
+            ApplyTransport(r, res);
             if (res.status != HttpStatusCode.OK)
             {
                 r.success = false;
                 r.httpException = res.ex;
-                r.SetErrMsgFromBytes(res.content);
+                if (res.content != null)
+                {
+                    r.SetErrMsgFromBytes(res.content);
+                }
                 return r;
             }
 
@@ -286,46 +446,78 @@ namespace TinCan
             return r;
         }
 
-        private LRSResponse SaveDocument(String resource, Dictionary<String, String> queryParams, Document document)
+        private LRSResponse SaveDocument(String resource, Dictionary<String, String> queryParams, Document document, String method = "PUT")
         {
             var r = new LRSResponse();
+            String originalEtag = document.etag;
 
-            var req = new MyHTTPRequest();
-            req.method = "PUT";
-            req.resource = resource;
-            req.queryParams = queryParams;
-            req.contentType = document.contentType;
-            req.content = document.content;
-
-            var res = MakeSyncRequest(req);
-            if (res.status != HttpStatusCode.NoContent)
+            var res = SendDocument(resource, queryParams, document, method, originalEtag);
+            if (IsDocumentSuccess(res))
             {
-                r.success = false;
-                r.httpException = res.ex;
-                r.SetErrMsgFromBytes(res.content);
+                if (!String.IsNullOrEmpty(res.etag))
+                {
+                    document.etag = res.etag;
+                }
+                r.success = true;
+                ApplyTransport(r, res);
                 return r;
             }
 
-            r.success = true;
+            if (resolveDocumentConflicts && String.IsNullOrEmpty(originalEtag) &&
+                (res.status == HttpStatusCode.Conflict || res.status == HttpStatusCode.PreconditionFailed))
+            {
+                String currentEtag = FetchDocumentEtag(resource, queryParams);
+                if (!String.IsNullOrEmpty(currentEtag))
+                {
+                    res = SendDocument(resource, queryParams, document, method, currentEtag);
+                    if (IsDocumentSuccess(res))
+                    {
+                        document.etag = String.IsNullOrEmpty(res.etag) ? currentEtag : res.etag;
+                        r.success = true;
+                        ApplyTransport(r, res);
+                        return r;
+                    }
+                }
+            }
 
+            r.success = false;
+            r.httpException = res.ex;
+            ApplyTransport(r, res);
+            if (res.content != null)
+            {
+                r.SetErrMsgFromBytes(res.content);
+            }
             return r;
         }
 
-        private LRSResponse DeleteDocument(String resource, Dictionary<String, String> queryParams)
+        private LRSResponse DeleteDocument(String resource, Dictionary<String, String> queryParams, String etag = null, bool concurrency = true)
         {
             var r = new LRSResponse();
+
+            if (concurrency && String.IsNullOrEmpty(etag))
+            {
+                etag = FetchDocumentEtag(resource, queryParams);
+            }
 
             var req = new MyHTTPRequest();
             req.method = "DELETE";
             req.resource = resource;
             req.queryParams = queryParams;
+            if (concurrency && !String.IsNullOrEmpty(etag))
+            {
+                req.ifMatch = etag;
+            }
 
             var res = MakeSyncRequest(req);
-            if (res.status != HttpStatusCode.NoContent)
+            ApplyTransport(r, res);
+            if (!IsDocumentSuccess(res))
             {
                 r.success = false;
                 r.httpException = res.ex;
-                r.SetErrMsgFromBytes(res.content);
+                if (res.content != null)
+                {
+                    r.SetErrMsgFromBytes(res.content);
+                }
                 return r;
             }
 
@@ -342,20 +534,83 @@ namespace TinCan
             req.method = "GET";
             req.resource = "statements";
             req.queryParams = queryParams;
+            if (queryParams.ContainsKey("attachments") && queryParams["attachments"] == "true")
+            {
+                req.accept = "multipart/mixed, application/json";
+            }
 
             var res = MakeSyncRequest(req);
+            ApplyTransport(r, res);
             if (res.status != HttpStatusCode.OK)
             {
                 r.success = false;
                 r.httpException = res.ex;
-                r.SetErrMsgFromBytes(res.content);
+                if (res.content != null)
+                {
+                    r.SetErrMsgFromBytes(res.content);
+                }
                 return r;
             }
 
+            String json;
+            Dictionary<String, byte[]> files;
+            ReadStatementBody(res, out json, out files);
+
             r.success = true;
-            r.content = new Statement(new Json.StringOfJSON(Encoding.UTF8.GetString(res.content)));
+            r.content = new Statement(new Json.StringOfJSON(json));
+            AttachFiles(r.content, files);
 
             return r;
+        }
+
+        /// <summary>
+        /// Asks the LRS which xAPI versions it supports (via the About resource) and sets
+        /// <see cref="version"/> to the best one this library supports: 2.0.0 when the LRS
+        /// advertises any 2.x version, otherwise the highest advertised 1.0.x version.
+        /// <see cref="version"/> is left unchanged when the About call fails or the LRS does
+        /// not advertise any version this library supports.
+        /// </summary>
+        /// <returns>The About response, so callers can inspect failures and extensions.</returns>
+        public AboutLRSResponse NegotiateVersion()
+        {
+            AboutLRSResponse about = About();
+            TCAPIVersion negotiated = SelectVersion(about);
+            if (negotiated != null)
+            {
+                version = negotiated;
+            }
+
+            return about;
+        }
+
+        internal static TCAPIVersion SelectVersion(AboutLRSResponse about)
+        {
+            if (about == null || !about.success || about.content == null || about.content.version == null)
+            {
+                return null;
+            }
+
+            TCAPIVersion bestLegacy = null;
+            foreach (TCAPIVersion advertised in about.content.version)
+            {
+                if (advertised == null)
+                {
+                    continue;
+                }
+
+                if (advertised.major >= 2)
+                {
+                    return TCAPIVersion.V200;
+                }
+
+                if (advertised.major == 1 && TCAPIVersion.GetSupported().ContainsKey(advertised.ToString())
+                    && (bestLegacy == null || advertised > bestLegacy))
+                {
+                    bestLegacy = advertised;
+                }
+            }
+
+            return bestLegacy;
         }
 
         public AboutLRSResponse About()
@@ -367,11 +622,15 @@ namespace TinCan
             req.resource = "about";
 
             var res = MakeSyncRequest(req);
+            ApplyTransport(r, res);
             if (res.status != HttpStatusCode.OK)
             {
                 r.success = false;
                 r.httpException = res.ex;
-                r.SetErrMsgFromBytes(res.content);
+                if (res.content != null)
+                {
+                    r.SetErrMsgFromBytes(res.content);
+                }
                 return r;
             }
 
@@ -398,17 +657,20 @@ namespace TinCan
                 req.queryParams.Add("statementId", statement.id.ToString());
             }
 
-            req.contentType = "application/json";
-            req.content = Encoding.UTF8.GetBytes(statement.ToJSON(version));
+            SetStatementRequestBody(req, statement.ToJSON(version), ContentAttachments(new Statement[] { statement }));
 
             var res = MakeSyncRequest(req);
+            ApplyTransport(r, res);
             if (statement.id == null)
             {
                 if (res.status != HttpStatusCode.OK)
                 {
                     r.success = false;
                     r.httpException = res.ex;
-                    r.SetErrMsgFromBytes(res.content);
+                    if (res.content != null)
+                    {
+                        r.SetErrMsgFromBytes(res.content);
+                    }
                     return r;
                 }
 
@@ -420,7 +682,10 @@ namespace TinCan
                 {
                     r.success = false;
                     r.httpException = res.ex;
-                    r.SetErrMsgFromBytes(res.content);
+                    if (res.content != null)
+                    {
+                        r.SetErrMsgFromBytes(res.content);
+                    }
                     return r;
                 }
             }
@@ -453,21 +718,24 @@ namespace TinCan
             var req = new MyHTTPRequest();
             req.resource = "statements";
             req.method = "POST";
-            req.contentType = "application/json";
 
             var jarray = new JArray();
             foreach (Statement st in statements)
             {
                 jarray.Add(st.ToJObject(version));
             }
-            req.content = Encoding.UTF8.GetBytes(jarray.ToString());
+            SetStatementRequestBody(req, jarray.ToString(), ContentAttachments(statements));
 
             var res = MakeSyncRequest(req);
+            ApplyTransport(r, res);
             if (res.status != HttpStatusCode.OK)
             {
                 r.success = false;
                 r.httpException = res.ex;
-                r.SetErrMsgFromBytes(res.content);
+                if (res.content != null)
+                {
+                    r.SetErrMsgFromBytes(res.content);
+                }
                 return r;
             }
 
@@ -484,15 +752,31 @@ namespace TinCan
         }
         public StatementLRSResponse RetrieveStatement(Guid id)
         {
+            return RetrieveStatement(id, false);
+        }
+        public StatementLRSResponse RetrieveStatement(Guid id, bool attachments)
+        {
             var queryParams = new Dictionary<String, String>();
             queryParams.Add("statementId", id.ToString());
+            if (attachments)
+            {
+                queryParams.Add("attachments", "true");
+            }
 
             return GetStatement(queryParams);
         }
         public StatementLRSResponse RetrieveVoidedStatement(Guid id)
         {
+            return RetrieveVoidedStatement(id, false);
+        }
+        public StatementLRSResponse RetrieveVoidedStatement(Guid id, bool attachments)
+        {
             var queryParams = new Dictionary<String, String>();
             queryParams.Add("voidedStatementId", id.ToString());
+            if (attachments)
+            {
+                queryParams.Add("attachments", "true");
+            }
 
             return GetStatement(queryParams);
         }
@@ -504,18 +788,26 @@ namespace TinCan
             req.method = "GET";
             req.resource = "statements";
             req.queryParams = query.ToParameterMap(version);
+            if (query.attachments == true)
+            {
+                req.accept = "multipart/mixed, application/json";
+            }
 
             var res = MakeSyncRequest(req);
+            ApplyTransport(r, res);
             if (res.status != HttpStatusCode.OK)
             {
                 r.success = false;
                 r.httpException = res.ex;
-                r.SetErrMsgFromBytes(res.content);
+                if (res.content != null)
+                {
+                    r.SetErrMsgFromBytes(res.content);
+                }
                 return r;
             }
 
             r.success = true;
-            r.content = new StatementsResult(new Json.StringOfJSON(Encoding.UTF8.GetString(res.content)));
+            r.content = ReadStatementsResult(res);
 
             return r;
         }
@@ -525,29 +817,47 @@ namespace TinCan
 
             var req = new MyHTTPRequest();
             req.method = "GET";
-            req.resource = endpoint.GetLeftPart(UriPartial.Authority);
-            if (! req.resource.EndsWith("/")) {
-                req.resource += "/";
-            }
-            req.resource += result.more;
+            req.resource = new Uri(endpoint, result.more).AbsoluteUri;
+            req.accept = "multipart/mixed, application/json";
 
             var res = MakeSyncRequest(req);
+            ApplyTransport(r, res);
             if (res.status != HttpStatusCode.OK)
             {
                 r.success = false;
                 r.httpException = res.ex;
-                r.SetErrMsgFromBytes(res.content);
+                if (res.content != null)
+                {
+                    r.SetErrMsgFromBytes(res.content);
+                }
                 return r;
             }
 
             r.success = true;
-            r.content = new StatementsResult(new Json.StringOfJSON(Encoding.UTF8.GetString(res.content)));
+            r.content = ReadStatementsResult(res);
 
             return r;
         }
 
-        // TODO: since param
-        public ProfileKeysLRSResponse RetrieveStateIds(Activity activity, Agent agent, Nullable<Guid> registration = null)
+        private StatementsResult ReadStatementsResult(MyHTTPResponse res)
+        {
+            String json;
+            Dictionary<String, byte[]> files;
+            ReadStatementBody(res, out json, out files);
+
+            var result = new StatementsResult(new Json.StringOfJSON(json));
+            if (result.statements != null)
+            {
+                foreach (Statement statement in result.statements)
+                {
+                    AttachFiles(statement, files);
+                }
+            }
+
+            return result;
+        }
+
+        public ProfileKeysLRSResponse RetrieveStateIds(Activity activity, Agent agent, Nullable<Guid> registration = null, Nullable<DateTime> since = null)
         {
             var queryParams = new Dictionary<String, String>();
             queryParams.Add("activityId", activity.id.ToString());
@@ -555,6 +865,10 @@ namespace TinCan
             if (registration != null)
             {
                 queryParams.Add("registration", registration.ToString());
+            }
+            if (since != null)
+            {
+                queryParams.Add("since", Json.Timestamp.Format(since.Value));
             }
 
             return GetProfileKeys("activities/state", queryParams);
@@ -580,6 +894,7 @@ namespace TinCan
             }
 
             var resp = GetDocument("activities/state", queryParams, state);
+            ApplyTransport(r, resp);
             if (resp.status != HttpStatusCode.OK && resp.status != HttpStatusCode.NotFound)
             {
                 r.success = false;
@@ -605,6 +920,19 @@ namespace TinCan
 
             return SaveDocument("activities/state", queryParams, state);
         }
+        public LRSResponse UpdateState(StateDocument state)
+        {
+            var queryParams = new Dictionary<String, String>();
+            queryParams.Add("stateId", state.id);
+            queryParams.Add("activityId", state.activity.id.ToString());
+            queryParams.Add("agent", state.agent.ToJSON(version));
+            if (state.registration != null)
+            {
+                queryParams.Add("registration", state.registration.ToString());
+            }
+
+            return SaveDocument("activities/state", queryParams, state, "POST");
+        }
         public LRSResponse DeleteState(StateDocument state)
         {
             var queryParams = new Dictionary<String, String>();
@@ -616,7 +944,7 @@ namespace TinCan
                 queryParams.Add("registration", state.registration.ToString());
             }
 
-            return DeleteDocument("activities/state", queryParams);
+            return DeleteDocument("activities/state", queryParams, state.etag, true);
         }
         public LRSResponse ClearState(Activity activity, Agent agent, Nullable<Guid> registration = null)
         {
@@ -628,14 +956,17 @@ namespace TinCan
                 queryParams.Add("registration", registration.ToString());
             }
 
-            return DeleteDocument("activities/state", queryParams);
+            return DeleteDocument("activities/state", queryParams, null, false);
         }
 
-        // TODO: since param
-        public ProfileKeysLRSResponse RetrieveActivityProfileIds(Activity activity)
+        public ProfileKeysLRSResponse RetrieveActivityProfileIds(Activity activity, Nullable<DateTime> since = null)
         {
             var queryParams = new Dictionary<String, String>();
             queryParams.Add("activityId", activity.id.ToString());
+            if (since != null)
+            {
+                queryParams.Add("since", Json.Timestamp.Format(since.Value));
+            }
 
             return GetProfileKeys("activities/profile", queryParams);
         }
@@ -652,6 +983,7 @@ namespace TinCan
             profile.activity = activity;
 
             var resp = GetDocument("activities/profile", queryParams, profile);
+            ApplyTransport(r, resp);
             if (resp.status != HttpStatusCode.OK && resp.status != HttpStatusCode.NotFound)
             {
                 r.success = false;
@@ -672,21 +1004,31 @@ namespace TinCan
 
             return SaveDocument("activities/profile", queryParams, profile);
         }
+        public LRSResponse UpdateActivityProfile(ActivityProfileDocument profile)
+        {
+            var queryParams = new Dictionary<String, String>();
+            queryParams.Add("profileId", profile.id);
+            queryParams.Add("activityId", profile.activity.id.ToString());
+
+            return SaveDocument("activities/profile", queryParams, profile, "POST");
+        }
         public LRSResponse DeleteActivityProfile(ActivityProfileDocument profile)
         {
             var queryParams = new Dictionary<String, String>();
             queryParams.Add("profileId", profile.id);
             queryParams.Add("activityId", profile.activity.id.ToString());
-            // TODO: need to pass Etag?
 
-            return DeleteDocument("activities/profile", queryParams);
+            return DeleteDocument("activities/profile", queryParams, profile.etag, true);
         }
 
-        // TODO: since param
-        public ProfileKeysLRSResponse RetrieveAgentProfileIds(Agent agent)
+        public ProfileKeysLRSResponse RetrieveAgentProfileIds(Agent agent, Nullable<DateTime> since = null)
         {
             var queryParams = new Dictionary<String, String>();
             queryParams.Add("agent", agent.ToJSON(version));
+            if (since != null)
+            {
+                queryParams.Add("since", Json.Timestamp.Format(since.Value));
+            }
 
             return GetProfileKeys("agents/profile", queryParams);
         }
@@ -703,6 +1045,7 @@ namespace TinCan
             profile.agent = agent;
 
             var resp = GetDocument("agents/profile", queryParams, profile);
+            ApplyTransport(r, resp);
             if (resp.status != HttpStatusCode.OK && resp.status != HttpStatusCode.NotFound)
             {
                 r.success = false;
@@ -723,14 +1066,77 @@ namespace TinCan
 
             return SaveDocument("agents/profile", queryParams, profile);
         }
+        public LRSResponse UpdateAgentProfile(AgentProfileDocument profile)
+        {
+            var queryParams = new Dictionary<String, String>();
+            queryParams.Add("profileId", profile.id);
+            queryParams.Add("agent", profile.agent.ToJSON(version));
+
+            return SaveDocument("agents/profile", queryParams, profile, "POST");
+        }
         public LRSResponse DeleteAgentProfile(AgentProfileDocument profile)
         {
             var queryParams = new Dictionary<String, String>();
             queryParams.Add("profileId", profile.id);
             queryParams.Add("agent", profile.agent.ToJSON(version));
-            // TODO: need to pass Etag?
 
-            return DeleteDocument("agents/profile", queryParams);
+            return DeleteDocument("agents/profile", queryParams, profile.etag, true);
+        }
+
+        public PersonLRSResponse RetrieveAgent(Agent agent)
+        {
+            var r = new PersonLRSResponse();
+
+            var req = new MyHTTPRequest();
+            req.method = "GET";
+            req.resource = "agents";
+            req.queryParams.Add("agent", agent.ToJSON(version));
+
+            var res = MakeSyncRequest(req);
+            ApplyTransport(r, res);
+            if (res.status != HttpStatusCode.OK)
+            {
+                r.success = false;
+                r.httpException = res.ex;
+                if (res.content != null)
+                {
+                    r.SetErrMsgFromBytes(res.content);
+                }
+                return r;
+            }
+
+            r.success = true;
+            r.content = new Person(new Json.StringOfJSON(Encoding.UTF8.GetString(res.content)));
+
+            return r;
+        }
+
+        public ActivityLRSResponse RetrieveActivity(Uri activityId)
+        {
+            var r = new ActivityLRSResponse();
+
+            var req = new MyHTTPRequest();
+            req.method = "GET";
+            req.resource = "activities";
+            req.queryParams.Add("activityId", activityId.ToString());
+
+            var res = MakeSyncRequest(req);
+            ApplyTransport(r, res);
+            if (res.status != HttpStatusCode.OK)
+            {
+                r.success = false;
+                r.httpException = res.ex;
+                if (res.content != null)
+                {
+                    r.SetErrMsgFromBytes(res.content);
+                }
+                return r;
+            }
+
+            r.success = true;
+            r.content = new Activity(new Json.StringOfJSON(Encoding.UTF8.GetString(res.content)));
+
+            return r;
         }
     }
 }
